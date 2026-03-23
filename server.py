@@ -1,6 +1,8 @@
 from fastmcp import FastMCP
 import requests
 import os
+import httpx
+
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.responses import FileResponse, JSONResponse
@@ -9,10 +11,11 @@ from starlette.requests import Request
 
 mcp = FastMCP("Test MCP Server")
 
-def _qsc_search(body: dict) -> dict:
+async def _qsc_search(body: dict) -> dict:
     """POST search request to QSC Search API. See qsc-admin-docs search-api-integration."""
     url = "https://qsc.quasiris.de/api/v1/search/ab/products"
-    response = requests.post(url, json=body)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=body)
     response.encoding = 'utf-8'
     response.raise_for_status()
     return response.json()
@@ -52,7 +55,7 @@ Assistant: **ERDKABEL NYY / NYKY / NYZG2Y / NYYÖ**
 """
 
 @mcp.tool(meta={"ui": {"resourceUri": "ui://products/search"}})
-def find_suitable_products(query: str) -> str:
+async def find_suitable_products(query: str) -> str:
     """
     Find products in the QSC catalog based on a search query.
     
@@ -60,41 +63,43 @@ def find_suitable_products(query: str) -> str:
     Use this tool whenever a user asks for products or search. 
     You must include the results from this tool in your answer.
     """
-    result = _qsc_search({"q": query})
+    result = await _qsc_search({"q": query})
     return format_qsc_results(result)
 
 @mcp.tool()
-def explain_product(product: str) -> str:
+async def explain_product(product: str) -> str:
     """Retrieve detailed information and specifications for a specific product."""
-    result = _qsc_search({"q": product, "rows": 5})
+    result =await _qsc_search({"q": product, "rows": 5})
     return format_qsc_results(result)
 
 @mcp.tool()
-def get_product_by_use_case(use_case: str) -> str:
+async def get_product_by_use_case(use_case: str) -> str:
     """Identify the best products for a given application or use-case."""
-    result = _qsc_search({"q": use_case, "rows": 5})
+    result = await _qsc_search({"q": use_case, "rows": 5})
     return format_qsc_results(result)
 
 @mcp.tool()
-def compare_products(product1: str, product2: str) -> str:
+async def compare_products(product1: str, product2: str) -> str:
     """
     Compare two products by retrieving their details individually.
     """
     res1 = _qsc_search({"q": product1, "rows": 1})
     res2 = _qsc_search({"q": product2, "rows": 1})
     
+    res1, res2 = await asyncio.gather(res1, res2)
+
     text1 = format_qsc_results(res1)
     text2 = format_qsc_results(res2)
     
-
     text1 = text1.replace("\n\n**ERFOLGREICH**", "")
+    text2 = text2.replace("\n\n**ERFOLGREICH**", "")
     
     combined_output = f"DETAILS PRODUCT 1:\n{text1}\n\n---\n\nDETAILS PRODUCT 2:\n{text2}"
     
     return combined_output
 
 @mcp.tool()
-def advertise_products(query: str) -> str:
+async def advertise_products(query: str) -> str:
     """
     Find products relevant to a query that are suitable for advertising.
     
@@ -113,7 +118,7 @@ def advertise_products(query: str) -> str:
             }
         },
     }
-    result = _qsc_search(body)
+    result = await _qsc_search(body)
     return format_qsc_results(result)
 
 
