@@ -25,13 +25,31 @@ def external_api_data(query: str):
 @mcp.prompt()
 def customer_service_prompt() -> str:
     """System prompt for the customer service AI Assistant."""
-    return """You are a Wago Customer Service AI. You speak via an MCP Server.
+    return """You are a Customer Service AI. You speak via an MCP Server.
     
 1. For EVERY request: Call find_suitable_products FIRST.
 2. If you find products, then call advertise_products SECOND.
-3. IMPORTANT: The tools return a PRE-FORMATTED Markdown list. You MUST copy this Markdown list COMPLETELY AND UNCHANGED into your response to the user. Do not summarize it. Do not leave anything out. 
+3. CRITICAL: Tools (`find_suitable_products`, `advertise_products`) provide READY-FORMATTED Markdown and HTML (including `<br>` and `<b>` tags).
+   You MUST NOT CHANGE ANYTHING in these tool outputs! 
+   This includes:
+   - NO rephrasing of sentences.
+   - NO summarization of details.
+   - NEVER delete HTML tags like <br> or <b>.
+   Copy the tool results 100% EXACTLY into your final response.
+   Treat the tool output as a "final text block" that you only "pass through" to the user.
 4. If advertise_products returns "Keine Produkte gefunden", DO NOT tell the user that "no products were found". Simply show the products from the first tool call and leave out the advertisement.
-5. If both tools find nothing after 3 tries, say: 'Question out of context.'"""
+5. If both tools find nothing after 3 tries, say: 'Question out of context.'
+6. When comparing products, first display the detailed blocks for both products provided by the tool, and then provide your summary/comparison below them.
+### EXAMPLE OF A PERFECT RESPONSE:
+User: "I am looking for NYY 3x2,5 ground cable."
+AI: [Calls find_suitable_products]
+Assistant: **ERDKABEL NYY / NYKY / NYZG2Y / NYYÖ**
+* **Name:** NYY-J 3x2,5 qmm RE 500m-Trommel PVC-isoliertes Erd-Kabel
+* **Produkt-ID:** 515c9433-1c7b-47df-b144-025ec072f228
+* **Beschreibung:** "Erdkabel NYY-J/NYY-O<br />nach VDE 0276<br /><b>Anwendung:</b><br />..."
+--- 
+**ERFOLGREICH**
+"""
 
 @mcp.tool(meta={"ui": {"resourceUri": "ui://products/search"}})
 def find_suitable_products(query: str) -> str:
@@ -60,10 +78,20 @@ def get_product_by_use_case(use_case: str) -> str:
 @mcp.tool()
 def compare_products(product1: str, product2: str) -> str:
     """
-    Compare two products, highlighting key differences and providing an expert recommendation.
+    Compare two products by retrieving their details individually.
     """
-    result = _qsc_search({"q": f"{product1} vs {product2}", "rows": 5})
-    return format_qsc_results(result)
+    res1 = _qsc_search({"q": product1, "rows": 1})
+    res2 = _qsc_search({"q": product2, "rows": 1})
+    
+    text1 = format_qsc_results(res1)
+    text2 = format_qsc_results(res2)
+    
+
+    text1 = text1.replace("\n\n**ERFOLGREICH**", "")
+    
+    combined_output = f"DETAILS PRODUCT 1:\n{text1}\n\n---\n\nDETAILS PRODUCT 2:\n{text2}"
+    
+    return combined_output
 
 @mcp.tool()
 def advertise_products(query: str) -> str:
@@ -74,8 +102,6 @@ def advertise_products(query: str) -> str:
     After you called find_suitable_products you will call this tool. 
     You will give a short description why the user should buy this product too. 
     If you advertise products make sure to format it nicely and make sure that the user is going to read it. You need to put the users attention to the advertised products.
-    If you advertised at least one product you will end your final answer with "Erfolgreich Werbung gemacht". 
-    Otherwise you will end your final answer with "Keine Werbung gemacht" and explain why you haven't done anything.
     """
     body: dict = {
         "q": query,

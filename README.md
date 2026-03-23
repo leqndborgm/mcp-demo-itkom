@@ -1,4 +1,4 @@
-# Wago QSC MCP Server
+# MCP Server
 
 An intelligent Model Context Protocol (MCP) server for searching, comparing and advertising products. This server is optimized for LLMs (like Claude) by providing pre-formatted Markdown results directly from the backend.
 
@@ -23,7 +23,7 @@ This project uses **Nix flakes** for a reproducible development environment.
 ## 🛠 Features
 
 ### Product Search & Tools
-- `find_suitable_products`: Main search functionality for the Wago catalog.
+- `find_suitable_products`: Main search functionality for the catalog.
 - `explain_product`: Detailed specifications for a chosen product.
 - `compare_products`: Expert comparison between two products.
 - `advertise_products`: Finds products suitable for marketing campaigns (filtered by type: `ats`).
@@ -33,7 +33,7 @@ This project uses **Nix flakes** for a reproducible development environment.
 The server doesn't just return raw JSON. It formats all product data into beautiful, user-ready Markdown (including **BOLD CAPS** categories and image previews) before handing it to the AI. This guarantees a consistent UI experience.
 
 ### System Prompt
-The server exports a dedicated `customer_service_prompt`. When using an MCP-compatible client, you can load this prompt to instantly set the correct persona and tool-calling rules for the Wago customer service.
+The server exports a dedicated `customer_service_prompt`. When using an MCP-compatible client, you can load this prompt to instantly set the correct persona and tool-calling rules for the customer service.
 
 ### Decoupled Inspector
 The `mcp-inspector` tool is decoupled. While it defaults to your local server, you can use it to test *any* MCP server:
