@@ -2,6 +2,7 @@ from fastmcp import FastMCP
 import requests
 import os
 import httpx
+import asyncio
 
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
@@ -21,9 +22,9 @@ async def _qsc_search(body: dict) -> dict:
     return response.json()
 
 @mcp.resource("ressource://externdata/{query}")
-def external_api_data(query: str):
+async def external_api_data(query: str):
     """Get products from the external API based on a query."""
-    return _qsc_search({"q": query})
+    return await _qsc_search({"q": query})
 
 @mcp.prompt()
 def customer_service_prompt() -> str:
