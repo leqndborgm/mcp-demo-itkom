@@ -34,7 +34,7 @@
             pkgs.python313Packages.pip
             pkgs.python313Packages.cyclopts
             pkgs.python313Packages.requests
-            pkgs.python313Packages.httpxs
+            pkgs.python313Packages.httpx
             pkgs.psmisc # provides fuser
             (mkScript "mcp-server" ''
               # Cleanup port 8001
