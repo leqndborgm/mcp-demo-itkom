@@ -17,7 +17,6 @@ def _qsc_search(body: dict) -> dict:
     response.raise_for_status()
     return response.json()
 
-
 @mcp.resource("ressource://externdata/{query}")
 def external_api_data(query: str):
     """Get products from the external API based on a query."""
@@ -26,61 +25,50 @@ def external_api_data(query: str):
 @mcp.prompt()
 def customer_service_prompt() -> str:
     """System prompt for the customer service AI Assistant."""
-    return """You are an intelligent AI Assistant that is trained to be a customer service. You are connected to the MCP Server from Wago where you get all available products.
-1. On **startup** and for **every user request**: **call the search tool first** before producing any answer.
-
-2. If you give the user any products as answer make sure the format is fine universal. You also need to make sure that the user can see the difference between the products so seperate them in your format. Also seperate different things like listing a product and advertising another product. Make sure that all categorys are under each other and bold so the user can see what is which.
-
-3. If after 3 attempts there are **no results** (empty / not found) reply exactly:
-
-Question out of context.
-
-
-4. If results are **ambiguous/contradictory** so you cannot decide, reply exactly:
-
-I don't know.
-
-5. Make sure to always give the user an error answer in case something went wrong and describe really short what went wrong."""
+    return """You are a Wago Customer Service AI. You speak via an MCP Server.
+    
+1. For EVERY request: Call find_suitable_products FIRST.
+2. If you find products, then call advertise_products SECOND.
+3. IMPORTANT: The tools return a PRE-FORMATTED Markdown list. You MUST copy this Markdown list COMPLETELY AND UNCHANGED into your response to the user. Do not summarize it. Do not leave anything out. 
+4. If advertise_products returns "Keine Produkte gefunden", DO NOT tell the user that "no products were found". Simply show the products from the first tool call and leave out the advertisement.
+5. If both tools find nothing after 3 tries, say: 'Question out of context.'"""
 
 @mcp.tool(meta={"ui": {"resourceUri": "ui://products/search"}})
-def find_suitable_products(query: str):
+def find_suitable_products(query: str) -> str:
     """
     Find products in the QSC catalog based on a search query.
     
     INSTRUCTIONS FOR AI:
-    If a user asked for a specific product you first call this tool. 
-    Describe the product also in 1 or 2 really short sentences (Just say it without the information that its a short description). 
-    Then you will make sure that the picture and all important informations are shown. 
-    The important informations should not cotain "Hersteller Nr.", "SKU", "EAN". 
-    Make sure that everythin is formatted nicely and make sure that categorys are bold, under each other etc.
+    Use this tool whenever a user asks for products or search. 
+    You must include the results from this tool in your answer.
     """
-    return _qsc_search({"q": query})
+    result = _qsc_search({"q": query})
+    return format_qsc_results(result)
 
 @mcp.tool()
-def explain_product(product: str):
+def explain_product(product: str) -> str:
     """Retrieve detailed information and specifications for a specific product."""
-    return _qsc_search({"q": product, "rows": 5})
+    result = _qsc_search({"q": product, "rows": 5})
+    return format_qsc_results(result)
 
 @mcp.tool()
-def get_product_by_use_case(use_case: str):
+def get_product_by_use_case(use_case: str) -> str:
     """Identify the best products for a given application or use-case."""
-    return _qsc_search({"q": use_case, "rows": 5})
+    result = _qsc_search({"q": use_case, "rows": 5})
+    return format_qsc_results(result)
 
 @mcp.tool()
-def compare_products(product1: str, product2: str):
+def compare_products(product1: str, product2: str) -> str:
     """
     Compare two products, highlighting key differences and providing an expert recommendation.
-    
-    INSTRUCTIONS FOR AI:
-    If a user asks to compare products you will call this tool and will give your honest opinion about what product is more useful for the use case the user describes. 
-    After that you will advertise products again by calling the advertise_products tool.
     """
-    return _qsc_search({"q": f"{product1} vs {product2}", "rows": 5})
+    result = _qsc_search({"q": f"{product1} vs {product2}", "rows": 5})
+    return format_qsc_results(result)
 
 @mcp.tool()
-def advertise_products(query: str):
+def advertise_products(query: str) -> str:
     """
-    Find products relevant to a query that are suitable for advertising campaigns.
+    Find products relevant to a query that are suitable for advertising.
     
     INSTRUCTIONS FOR AI:
     After you called find_suitable_products you will call this tool. 
@@ -99,7 +87,48 @@ def advertise_products(query: str):
             }
         },
     }
-    return _qsc_search(body)
+    result = _qsc_search(body)
+    return format_qsc_results(result)
+
+
+def format_qsc_results(result: dict) -> str:
+    formatted_results = ""
+    documents = result.get("result", {}).get("products", {}).get("documents", [])
+    
+    if not documents:
+        return "Keine Produkte gefunden.\n\n**ERFOLGREICH**"
+        
+    for item in documents:
+        product_doc = item.get("document", {})
+        
+        name = product_doc.get("name", product_doc.get("title", "Kein Name"))
+        product_id = item.get("id", "Keine ID")
+        position = item.get("position", item.get("pos", ""))
+        description = product_doc.get("description", "Keine Beschreibung")
+        
+        category_raw = product_doc.get("category", "PRODUKT")
+        if isinstance(category_raw, list) and category_raw:
+            category_raw = category_raw[0]
+        category_header = f"**{str(category_raw).upper()}**"
+        
+        # Image link logic
+        image = product_doc.get("publicPreviewImageUrl", 
+                               product_doc.get("privatePreviewImageUrl", 
+                               product_doc.get("imageUrl", "")))
+        
+        # Build block
+        formatted_results += f"{category_header}\n"
+        formatted_results += f"* **Name:** {name}\n"
+        formatted_results += f"* **Produkt-ID:** {product_id}\n"
+        if position:
+            formatted_results += f"* **Position:** {position}\n"
+        formatted_results += f"* **Beschreibung:** {description}\n"
+        if image:
+            formatted_results += f"![Produktbild]({image})\n"
+        formatted_results += "\n---\n\n"
+    
+    return formatted_results.strip() + "\n\n**ERFOLGREICH**"
+
 
 
 @mcp.tool(meta={"ui": {"resourceUri": "ui://weather/view"}})
