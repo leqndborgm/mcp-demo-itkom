@@ -28,20 +28,37 @@
             pkgs.python313Packages.cyclopts
             pkgs.python313Packages.requests
             pkgs.psmisc # provides fuser
-            (mkScript "mcp-start" ''
-              # Cleanup port 8001, 6274 (client), 6277 (proxy)
+            (mkScript "mcp-server" ''
+              # Cleanup port 8001
               fuser -k 8001/tcp 2>/dev/null || true
+              
+              echo "🚀 Starting MCP Server on http://localhost:8001..."
+              python server.py http
+            '')
+            
+            (mkScript "mcp-inspector" ''
+              # Cleanup port 6274/6277 (client/proxy default ports for Inspector)
               fuser -k 6274/tcp 2>/dev/null || true
               fuser -k 6277/tcp 2>/dev/null || true
               
-              echo "🚀 Starting MCP Server on http://localhost:8001..."
-              python server.py http &
+              if [ $# -eq 0 ]; then
+                echo "🔍 No arguments provided. Defaulting to local MCP Server at http://localhost:8001/mcp"
+                echo "   (You can pass your own args: e.g. 'mcp-inspector node build/index.js')"
+                npx @modelcontextprotocol/inspector http://localhost:8001/mcp
+              else
+                echo "🔍 Running inspector globally for: $@"
+                npx @modelcontextprotocol/inspector "$@"
+              fi
+            '')
+
+            (mkScript "mcp-start" ''
+              # Convenience script to start both local server and inspector
+              echo "🚀 Starting both Server and Inspector..."
+              mcp-server &
               SERVER_PID=$!
               
               sleep 2
-              echo "🔍 Starting MCP Inspector on http://localhost:6274..."
-              # Inspector connecting to our server at the correct /mcp endpoint
-              npx @modelcontextprotocol/inspector http://localhost:8001/mcp &
+              mcp-inspector &
               INSPECTOR_PID=$!
               
               trap "kill $SERVER_PID $INSPECTOR_PID 2>/dev/null" EXIT
@@ -75,7 +92,10 @@
             echo "║   MCP Server Development Shell               ║"
             echo "╠══════════════════════════════════════════════╣"
             echo "║  Standard MCP-UI (MCP Apps) Ready            ║"
-            echo "║  Run 'mcp-start' to launch server + inspector║"
+            echo "║  Commands:                                   ║"
+            echo "║    mcp-server    - Run only Backend          ║"
+            echo "║    mcp-inspector - Run independent Inspector ║"
+            echo "║    mcp-start     - Run both together         ║"
             echo "╚══════════════════════════════════════════════╝"
             echo ""
           '';
