@@ -16,7 +16,6 @@ async def find_suitable_products(query: str) -> str:
 
     INSTRUCTIONS FOR AI:
     Use this tool whenever a user asks for products or search.
-    You must include the results from this tool in your answer.
     """
     result = await qsc_search({"q": query})
     return format_qsc_results(result)
@@ -50,10 +49,6 @@ async def compare_products(product1: str, product2: str) -> str:
     Compare two products directly using their names or IDs.
 
     MANDATORY INSTRUCTION FOR AI:
-    - You MUST clean the input strings: Extract ONLY the core brand and model number (e.g., 'Hauff EKD25').
-    - NEVER include descriptive phrases like 'für Gebäude' or 'im Koffer' in the parameters.
-    - BAD EXAMPLE: 'Baier BDN453 Diamantfräse im Koffer' -> GOOD EXAMPLE: 'Baier BDN453'
-    - This is critical because the search engine will return 0 results for long descriptive strings.
     Use this tool ONLY when a user explicitly wants to compare two specific products or asks for a recommendation between two options.
     Do NOT call explain_product twice;
     Use this tool instead to get a unified and correctly formatted comparison output.
@@ -79,7 +74,6 @@ async def advertise_products(query: str) -> str:
     Find matching accessories or upsell items (type 'ast').
 
     INSTRUCTIONS FOR AI:
-    - MANDATORY: Call this tool SECOND after you have used any product tool (find, explain or compare).
     - Use only the model number or brand as the query.
     """
 
