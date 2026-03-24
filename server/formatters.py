@@ -42,4 +42,4 @@ def format_qsc_results(result: dict) -> str:
             formatted_results += f"![Produktbild]({image})\n"
         formatted_results += "\n---\n\n"
 
-    return formatted_results.strip() + "\n\n**ERFOLGREICH**"
+    return formatted_results.strip()

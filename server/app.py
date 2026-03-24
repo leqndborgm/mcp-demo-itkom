@@ -4,7 +4,7 @@ import os
 import sys
 
 from fastmcp import FastMCP
-from starlette.responses import FileResponse, RedirectResponse
+from starlette.responses import FileResponse
 
 from server.config import SERVER_HOST, SERVER_PORT
 
@@ -29,13 +29,9 @@ def create_http_app():
     async def serve_index(request):
         return FileResponse(os.path.join(os.path.dirname(os.path.dirname(__file__)), "index.html"))
 
-    async def mcp_redirect(request):
-        return RedirectResponse(url="/sse")
-
     # Prepend custom routes (before MCP's catch-all routes)
     app.routes.insert(0, Route("/", serve_index))
     app.routes.insert(1, Route("/index.html", serve_index))
-    app.routes.insert(2, Route("/mcp", mcp_redirect))
 
     return app
 

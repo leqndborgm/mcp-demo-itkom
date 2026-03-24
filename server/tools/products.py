@@ -67,9 +67,6 @@ async def compare_products(product1: str, product2: str) -> str:
     text1 = format_qsc_results(res1)
     text2 = format_qsc_results(res2)
 
-    text1 = text1.replace("\n\n**ERFOLGREICH**", "")
-    text2 = text2.replace("\n\n**ERFOLGREICH**", "")
-
     combined_output = f"DETAILS PRODUCT 1:\n{text1}\n\n---\n\nDETAILS PRODUCT 2:\n{text2}"
 
     return combined_output

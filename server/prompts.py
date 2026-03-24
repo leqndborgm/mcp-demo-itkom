@@ -20,7 +20,7 @@ def customer_service_prompt() -> str:
 - When comparing, provide your own summary/recommendation ONLY AFTER displaying the raw tool blocks.
 
 ### EXAMPLE OF A PERFECT RESPONSE SEQUENCE:
-User: "I am looking for NYY 3x2,5 ground cable."
+User: 'I am looking for NYY 3x2,5 ground cable.'
 AI: [Calls find_suitable_products]
 AI: [Calls advertise_products]
 Assistant: [Outputs both results exactly]
