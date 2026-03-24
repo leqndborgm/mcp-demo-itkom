@@ -48,7 +48,7 @@ mcp-inspector node /path/to/other-server.js
 ## 🐳 Deployment (HTTP/SSE)
 To run the server in HTTP mode (for hosting as a web service):
 ```bash
-python server.py http
+python main.py http
 ```
 The server will be available at `http://localhost:8001`.
 
