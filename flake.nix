@@ -41,7 +41,7 @@
               fuser -k 8001/tcp 2>/dev/null || true
 
               echo "🚀 Starting MCP Server on http://localhost:8001..."
-              python server.py http
+              python main.py http
             '')
 
             (mkScript "mcp-inspector" ''

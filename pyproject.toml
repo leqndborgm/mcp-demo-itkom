@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.scripts]
-qsc-mcp = "server:mcp.run"
+qsc-mcp = "server.app:run"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["server.py"]
+include = ["server*"]
