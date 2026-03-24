@@ -3,15 +3,48 @@ import requests
 import os
 import httpx
 import asyncio
+import sys
+import time
+import logging
+from functools import wraps
 
-from starlette.applications import Starlette
-from starlette.routing import Route, Mount
-from starlette.responses import FileResponse, JSONResponse
-from starlette.requests import Request
+# Set up logging to stderr (standard for MCP to see output in logs)
+logging.basicConfig(level=logging.INFO, stream=sys.stderr if 'sys' in locals() else None)
+logger = logging.getLogger("mcp-perf")
+
+def time_it(func):
+    @wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return await func(*args, **kwargs)
+        finally:
+            duration = (time.perf_counter() - start) * 1000
+            color = "\033[92m" if duration < 100 else "\033[93m" if duration < 500 else "\033[91m"
+            reset = "\033[0m"
+            logger.info(f"Tool/Function '{func.__name__}' took {color}{duration:.2f}ms{reset}")
+
+    @wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            duration = (time.perf_counter() - start) * 1000
+            color = "\033[92m" if duration < 100 else "\033[93m" if duration < 500 else "\033[91m"
+            reset = "\033[0m"
+            logger.info(f"Tool/Function '{func.__name__}' took {color}{duration:.2f}ms{reset}")
+
+    return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
+from starlette.responses import FileResponse, RedirectResponse
+import uvicorn
+
 # FastMCP Server with integrated UI resources
 
 mcp = FastMCP("Test MCP Server")
 
+@time_it
 async def _qsc_search(body: dict) -> dict:
     """POST search request to QSC Search API. See qsc-admin-docs search-api-integration."""
     url = "https://qsc.quasiris.de/api/v1/search/ab/products"
@@ -26,36 +59,42 @@ async def external_api_data(query: str):
     """Get products from the external API based on a query."""
     return await _qsc_search({"q": query})
 
+async def smart_search(query: str, rows: int = 1):
+    """POST search request to QSC Search API with fallback for 0 results."""
+    result = await _qsc_search({"q": query, "rows": rows})
+    docs = result.get("result", {}).get("products", {}).get("documents", [])
+    
+    if not docs and len(query.split()) > 2:
+        simplified_query = " ".join(query.split()[:3])
+        return await _qsc_search({"q": simplified_query, "rows": rows})
+        
+    return result
+
 @mcp.prompt()
 def customer_service_prompt() -> str:
     """System prompt for the customer service AI Assistant."""
     return """You are a Customer Service AI. You speak via an MCP Server.
-    
-1. For EVERY request: Call find_suitable_products FIRST.
-2. If you find products, then call advertise_products SECOND.
-3. CRITICAL: Tools (`find_suitable_products`, `advertise_products`) provide READY-FORMATTED Markdown and HTML (including `<br>` and `<b>` tags).
-   You MUST NOT CHANGE ANYTHING in these tool outputs! 
-   This includes:
-   - NO rephrasing of sentences.
-   - NO summarization of details.
-   - NEVER delete HTML tags like <br> or <b>.
-   Copy the tool results 100% EXACTLY into your final response.
-   Treat the tool output as a "final text block" that you only "pass through" to the user.
-4. If advertise_products returns "Keine Produkte gefunden", DO NOT tell the user that "no products were found". Simply show the products from the first tool call and leave out the advertisement.
-5. If both tools find nothing after 3 tries, say: 'Question out of context.'
-6. When comparing products, first display the detailed blocks for both products provided by the tool, and then provide your summary/comparison below them.
-### EXAMPLE OF A PERFECT RESPONSE:
+
+### MANDATORY STEP-BY-STEP WORKFLOW:
+1. PHASE 1 (DISCOVERY): Identify products. Call ONE of: find_suitable_products, explain_product, or compare_products.
+2. PHASE 2 (ADVERTISING): ALWAYS call 'advertise_products' using the names/IDs found in Phase 1. This step is NOT OPTIONAL.
+3. PHASE 3 (RESPONSE): Combine all tool results 100% EXACTLY into your final message.
+
+### FORMATTING RULES:
+- CRITICAL: Tools (find_suitable_products, explain_product, compare_products, advertise_products) provide READY-FORMATTED Markdown and HTML.
+- You MUST NOT CHANGE ANYTHING in these tool outputs (no rephrasing, no summarization).
+- If advertise_products returns "Keine Produkte gefunden", simply omit that part in your final message without mentioning it.
+- When comparing, provide your own summary/recommendation ONLY AFTER displaying the raw tool blocks.
+
+### EXAMPLE OF A PERFECT RESPONSE SEQUENCE:
 User: "I am looking for NYY 3x2,5 ground cable."
 AI: [Calls find_suitable_products]
-Assistant: **ERDKABEL NYY / NYKY / NYZG2Y / NYYÖ**
-* **Name:** NYY-J 3x2,5 qmm RE 500m-Trommel PVC-isoliertes Erd-Kabel
-* **Produkt-ID:** 515c9433-1c7b-47df-b144-025ec072f228
-* **Beschreibung:** "Erdkabel NYY-J/NYY-O<br />nach VDE 0276<br /><b>Anwendung:</b><br />..."
---- 
-**ERFOLGREICH**
+AI: [Calls advertise_products]
+Assistant: [Outputs both results exactly]
 """
 
-@mcp.tool(meta={"ui": {"resourceUri": "ui://products/search"}})
+@mcp.tool()
+@time_it
 async def find_suitable_products(query: str) -> str:
     """
     Find products in the QSC catalog based on a search query.
@@ -68,26 +107,44 @@ async def find_suitable_products(query: str) -> str:
     return format_qsc_results(result)
 
 @mcp.tool()
+@time_it
 async def explain_product(product: str) -> str:
-    """Retrieve detailed information and specifications for a specific product."""
-    result =await _qsc_search({"q": product, "rows": 5})
+    """Retrieve detailed information and specifications for a specific product.
+    
+    INSTRUCTIONS FOR AI:
+    Use this tool whenever a user asks for detailed information about a product. 
+    CRITICAL: DO NOT use this tool if you need to compare or recommend between products. Use 'compare_products' instead.
+    """
+    result = await smart_search(product, rows=5)
     return format_qsc_results(result)
 
 @mcp.tool()
+@time_it
 async def get_product_by_use_case(use_case: str) -> str:
     """Identify the best products for a given application or use-case."""
-    result = await _qsc_search({"q": use_case, "rows": 5})
+    result = await smart_search(use_case, rows=5)
     return format_qsc_results(result)
 
 @mcp.tool()
+@time_it
 async def compare_products(product1: str, product2: str) -> str:
     """
-    Compare two products by retrieving their details individually.
+    Compare two products directly using their names or IDs.
+
+    MANDATORY INSTRUCTION FOR AI:
+    - You MUST clean the input strings: Extract ONLY the core brand and model number (e.g., 'Hauff EKD25').
+    - NEVER include descriptive phrases like 'für Gebäude' or 'im Koffer' in the parameters.
+    - BAD EXAMPLE: 'Baier BDN453 Diamantfräse im Koffer' -> GOOD EXAMPLE: 'Baier BDN453'
+    - This is critical because the search engine will return 0 results for long descriptive strings.
+    Use this tool ONLY when a user explicitly wants to compare two specific products or asks for a recommendation between two options. 
+    Do NOT call explain_product twice; 
+    Use this tool instead to get a unified and correctly formatted comparison output. 
+    This tool retrieves information for both products in parallel, making it faster and more suitable for direct comparisons than individual lookups.
     """
-    res1 = _qsc_search({"q": product1, "rows": 1})
-    res2 = _qsc_search({"q": product2, "rows": 1})
-    
-    res1, res2 = await asyncio.gather(res1, res2)
+    res1_task = smart_search(product1, rows=1)
+    res2_task = smart_search(product2, rows=1)
+
+    res1, res2 = await asyncio.gather(res1_task, res2_task)
 
     text1 = format_qsc_results(res1)
     text2 = format_qsc_results(res2)
@@ -100,26 +157,35 @@ async def compare_products(product1: str, product2: str) -> str:
     return combined_output
 
 @mcp.tool()
+@time_it
 async def advertise_products(query: str) -> str:
     """
-    Find products relevant to a query that are suitable for advertising.
+    Find matching accessories or upsell items (type 'ast').
     
     INSTRUCTIONS FOR AI:
-    After you called find_suitable_products you will call this tool. 
-    You will give a short description why the user should buy this product too. 
-    If you advertise products make sure to format it nicely and make sure that the user is going to read it. You need to put the users attention to the advertised products.
+    - MANDATORY: Call this tool SECOND after you have used any product tool (find, explain or compare).
+    - Use only the model number or brand as the query.
     """
-    body: dict = {
-        "q": query,
-        "rows": 5,
-        "filters": {
-            "type": {
-                "filterType": "term",
-                "values": ["ats"],
-            }
-        },
-    }
-    result = await _qsc_search(body)
+    async def get_ads(q):
+        body: dict = {
+            "q": q,
+            "rows": 5,
+            "filters": {
+                "type": {
+                    "filterType": "term",
+                    "values": ["ast"],
+                }
+            },
+        }
+        return await _qsc_search(body)
+
+    result = await get_ads(query)
+    docs = result.get("result", {}).get("products", {}).get("documents", [])
+    
+    # Smart Fallback: If no ads found for the full string, try shortening it
+    if not docs and len(query.split()) > 2:
+        result = await get_ads(" ".join(query.split()[:3]))
+        
     return format_qsc_results(result)
 
 
@@ -163,7 +229,7 @@ def format_qsc_results(result: dict) -> str:
 
 
 
-@mcp.tool(meta={"ui": {"resourceUri": "ui://weather/view"}})
+@mcp.tool()
 def get_weather(location: str):
     """Retrieve current weather data for a location. Provide a city name (e.g. 'Berlin', 'London') or 'latitude,longitude' (e.g. '52.52,13.41'). Uses the Open-Meteo public API."""
     location = location.strip()
@@ -202,87 +268,24 @@ def _geocode_location(location: str) -> tuple[float, float]:
     return results[0]["latitude"], results[0]["longitude"]
 
 
-# Register UI resources using standard MCP decorators
-@mcp.resource("ui://products/search", mime_type="text/html")
-def products_search_ui():
-    """UI for product search."""
-    return """
-<div style="font-family: sans-serif; padding: 20px; background: #0a0f1d; color: #e2e8f0; border-radius: 8px;">
-    <h2 style="color: #6366f1;">Product Search</h2>
-    <div id="results">Search results will appear here.</div>
-</div>
-"""
 
-@mcp.resource("ui://weather/view", mime_type="text/html")
-def weather_view_ui():
-    """UI for weather report."""
-    return """
-<div style="font-family: sans-serif; padding: 20px; background: #1e293b; color: #f8fafc; border-radius: 8px;">
-    <h2 style="color: #38bdf8;">Weather Report</h2>
-</div>
-"""
-
-# Simple Tool Rendering (Dashboard)
-async def serve_index(request: Request):
-    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
-
-async def list_tools_api(request: Request):
-    tools = await mcp.get_tools()
-    return JSONResponse([
-        {
-            "name": t.name,
-            "description": t.description,
-            "parameters": t.to_mcp_tool().inputSchema,
-            "meta": t.meta if hasattr(t, "meta") else {}
-        } for t in tools.values()
-    ])
-
-async def get_resource_api(request: Request):
-    uri = request.query_params.get("uri")
-    if not uri:
-        return JSONResponse({"error": "URI required"}, status_code=400)
-    try:
-        resource = None
-        for res_name, res_obj in mcp._resources.items():
-            if res_obj.uri == uri:
-                content = res_obj.func()
-                import asyncio
-                if asyncio.iscoroutine(content):
-                    content = await content
-                return JSONResponse({"resource": content})
-        
-        return JSONResponse({"error": f"Resource not found: {uri}"}, status_code=404)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-async def call_tool_api(request: Request):
-    name = request.path_params["name"]
-    try:
-        args = await request.json()
-        tool = await mcp.get_tool(name)
-        result = tool.func(**args)
-        import asyncio
-        if asyncio.iscoroutine(result):
-            result = await result
-        return JSONResponse({"result": result})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
     import sys
-    # If 'http' is passed as an argument, run as HTTP/SSE server (for local dashboard/inspector)
-    # Otherwise, run as STDIO server (default for platforms like Prefect Horizon)
     if len(sys.argv) > 1 and sys.argv[1] == "http":
-        import uvicorn
-        # Get the Starlette app from FastMCP
+        # Get the standard MCP HTTP app
         app = mcp.http_app()
         
-        # Add our dashboard routes directly to it
-        app.add_route("/", serve_index, methods=["GET"])
-        app.add_route("/index.html", serve_index, methods=["GET"])
-        app.add_route("/api/tools", list_tools_api, methods=["GET"])
-        app.add_route("/api/resource", get_resource_api, methods=["GET"])
-        app.add_route("/api/call/{name}", call_tool_api, methods=["POST"])
+        # Restore index.html serving
+        @app.route("/")
+        @app.route("/index.html")
+        async def serve_index(request):
+            return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+
+        # Add /mcp as an alias for /sse (Standard SSE endpoint of FastMCP)
+        @app.route("/mcp")
+        async def mcp_redirect(request):
+            return RedirectResponse(url="/sse")
 
         print("🚀 Starting MCP Server in HTTP mode on http://localhost:8001")
         uvicorn.run(app, host="0.0.0.0", port=8001)
