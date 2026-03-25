@@ -18,8 +18,7 @@ async def find_products(query: str) -> str:
     Use this tool whenever a user asks for products or search.
     """
     result = await qsc_search({"q": query})
-    return format_qsc_results(result)
-
+    return format_qsc_results(result, "compact")
 
 @mcp.tool()
 @time_it
@@ -31,7 +30,7 @@ async def explain_product(product: str) -> str:
     CRITICAL: DO NOT use this tool if you need to compare or recommend between products. Use 'compare_products' instead.
     """
     result = await smart_search(product, rows=5)
-    return format_qsc_results(result)
+    return long_format_qsc_results(result)
 
 @mcp.tool()
 @time_it
@@ -62,10 +61,11 @@ async def compare_products(product1: str, product2: str) -> str:
 @time_it
 async def advertise_products(query: str) -> str:
     """
-    Find matching accessories or upsell items (type 'ast').
+    Find matching accessories or upsell items.
 
     INSTRUCTIONS FOR AI:
     - Use only the model number or brand as the query.
+    - Describe in your short description why the user might need this product.
     """
 
     async def get_ads(q):
@@ -82,4 +82,4 @@ async def advertise_products(query: str) -> str:
     if not docs and len(query.split()) > 2:
         result = await get_ads(" ".join(query.split()[:3]))
 
-    return format_qsc_results(result)
+    return format_qsc_results(result, "advertise")
