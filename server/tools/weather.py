@@ -3,9 +3,11 @@
 import requests
 
 from server.app import mcp
+from server.utils import time_it
 
 
 @mcp.tool()
+@time_it
 def get_weather(location: str):
     """Retrieve current weather data for a location. Provide a city name (e.g. 'Berlin', 'London') or 'latitude,longitude' (e.g. '52.52,13.41'). Uses the Open-Meteo public API."""
     location = location.strip()
@@ -31,6 +33,7 @@ def get_weather(location: str):
     return response.json()
 
 
+@time_it
 def _geocode_location(location: str) -> tuple[float, float]:
     """Resolve city name to latitude and longitude using Open-Meteo Geocoding API."""
     url = "https://geocoding-api.open-meteo.com/v1/search"
