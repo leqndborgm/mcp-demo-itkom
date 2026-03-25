@@ -29,8 +29,6 @@ async def warmup():
         pass
 
 
-
-
 def create_http_app():
     """Build the Starlette ASGI app with MCP + static routes."""
     from starlette.routing import Route

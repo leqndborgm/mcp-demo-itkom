@@ -33,14 +33,14 @@ def format_qsc_results(result: dict, detail_level: str = "") -> str:
 
 
         if detail_level == "advertise":
-            desc = p.get("description", "N/A")[:200] + "..."
+            desc = p.get("description", "N/A")[:150] + "..."
             output.append(f"*- {name} | {pid} | {desc} | ![Image]({image})")
 
         else:
             cat = p.get("category", ["N/A"])
             cat_name = cat[0] if isinstance(cat, list) and cat else str(cat)
             
-            desc = p.get("description", "N/A")[:250] + "..."
+            desc = p.get("description", "N/A")[:300] + "..."
             output.append(f"*- {name} | {pid} | {cat_name} | {desc} | ![Image]({image})")
 
     return "\n\n".join(output)
