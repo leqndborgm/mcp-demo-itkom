@@ -10,7 +10,7 @@ from server.utils import time_it
 
 @mcp.tool()
 @time_it
-async def find_suitable_products(query: str) -> str:
+async def find_products(query: str) -> str:
     """
     Find products in the QSC catalog based on a search query.
 
@@ -32,15 +32,6 @@ async def explain_product(product: str) -> str:
     """
     result = await smart_search(product, rows=5)
     return format_qsc_results(result)
-
-
-@mcp.tool()
-@time_it
-async def get_product_by_use_case(use_case: str) -> str:
-    """Identify the best products for a given application or use-case."""
-    result = await smart_search(use_case, rows=5)
-    return format_qsc_results(result)
-
 
 @mcp.tool()
 @time_it
@@ -81,12 +72,6 @@ async def advertise_products(query: str) -> str:
         body: dict = {
             "q": q,
             "rows": 5,
-            "filters": {
-                "type": {
-                    "filterType": "term",
-                    "values": ["ast"],
-                }
-            },
         }
         return await qsc_search(body)
 
