@@ -2,11 +2,14 @@
 
 import os
 import sys
+import logging
 
 from fastmcp import FastMCP
 from starlette.responses import FileResponse
+from contextlib import asynccontextmanager
 
 from server.config import SERVER_HOST, SERVER_PORT
+from server.api import qsc_search
 
 # ── MCP instance (imported by tools, prompts, resources for registration) ──
 mcp = FastMCP("Test MCP Server")
@@ -18,6 +21,15 @@ def _register_all() -> None:
     import server.prompts  # noqa: F401
     import server.resources  # noqa: F401
 
+async def warmup():
+    """Pre-warm HTTP connection pool"""
+    try: 
+        await qsc_search({"q": "warmup", "rows": 1})
+    except Exception:
+        pass
+
+
+
 
 def create_http_app():
     """Build the Starlette ASGI app with MCP + static routes."""
@@ -25,6 +37,18 @@ def create_http_app():
 
     _register_all()
     app = mcp.http_app()
+
+    # Chain our warmup with FastMCP's own lifespa
+    _fastmcp_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def combined_lifespan(scope):
+        async with _fastmcp_lifespan(scope):
+            await warmup()
+            logging.info("Warmup complete")
+            yield
+
+    app.router.lifespan_context = combined_lifespan
 
     async def serve_index(request):
         return FileResponse(os.path.join(os.path.dirname(os.path.dirname(__file__)), "index.html"))
