@@ -30,7 +30,7 @@ async def explain_product(product: str) -> str:
     CRITICAL: DO NOT use this tool if you need to compare or recommend between products. Use 'compare_products' instead.
     """
     result = await smart_search(product, rows=5)
-    return long_format_qsc_results(result)
+    return format_qsc_results(result)
 
 @mcp.tool()
 @time_it

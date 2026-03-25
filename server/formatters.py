@@ -69,19 +69,19 @@ def format_qsc_results(result: dict, detail_level: str = "") -> str:
 
         if detail_level == "compact":
 
-            output.append(f"* {name} (ID: {pid})\n- ![Image]({image})")
+            output.append(f"- {name} | {pid} | {image}")
 
 
         if detail_level == "advertise":
             desc = p.get("description", "N/A")[:200] + "..."
-            output.append(f"* {name} (ID: {pid})\n- {desc}\n- ![Image]({image})")
+            output.append(f"- {name} | {pid} | {desc} | {image}")
 
         else:
             cat = p.get("category", ["N/A"])
             cat_name = cat[0] if isinstance(cat, list) and cat else str(cat)
             
             desc = p.get("description", "N/A")[:250] + "..."
-            output.append(f"* {name} (ID: {pid})\n- {cat_name}\n- {desc}\n- ![Image]({image})")
+            output.append(f"- {name} | {pid} | {cat_name} | {desc} | {image}")
 
     return "\n\n".join(output)
         
