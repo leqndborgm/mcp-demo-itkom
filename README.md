@@ -1,6 +1,6 @@
 # MCP Server
 
-An intelligent Model Context Protocol (MCP) server for searching, comparing and advertising products. This server is optimized for LLMs (like Claude) by providing pre-formatted Markdown results directly from the backend.
+An intelligent Model Context Protocol (MCP) server for searching, comparing and explaining products. This server is optimized for LLMs (like Claude) by providing pre-formatted Markdown results directly from the backend.
 
 ## 🚀 Quickstart (Nix)
 
@@ -22,18 +22,19 @@ This project uses **Nix flakes** for a reproducible development environment.
 
 ## 🛠 Features
 
-### Product Search & Tools
-- `find_suitable_products`: Main search functionality for the catalog.
-- `explain_product`: Detailed specifications for a chosen product.
-- `compare_products`: Expert comparison between two products.
-- `advertise_products`: Finds products suitable for marketing campaigns (filtered by type: `ats`).
-- `get_product_by_use_case`: Use-case based recommendations.
+### Product Tools
+- `find_products` — Search the product catalog by keyword. Returns the top results plus further suggestions the LLM can use for follow-ups without extra API calls.
+- `explain_product` — Retrieve detailed specifications for a specific product, including similar product suggestions.
+- `compare_products` — Compare two products side-by-side. Fetches both in parallel for speed.
+
+### Utility Tools
+- `get_weather` — Retrieve current weather for a city or lat/lon coordinate (demo of a second-domain tool using Open-Meteo).
 
 ### Pre-formatted Markdown
-The server doesn't just return raw JSON. It formats all product data into beautiful, user-ready Markdown (including **BOLD CAPS** categories and image previews) before handing it to the AI. This guarantees a consistent UI experience.
+The server formats all product data into clean Markdown (including image previews) before returning it to the AI — no raw JSON, consistent output every time.
 
 ### System Prompt
-The server exports a dedicated `customer_service_prompt`. When using an MCP-compatible client, you can load this prompt to instantly set the correct persona and tool-calling rules for the customer service.
+The server exports a `customer_service_prompt` that MCP-compatible clients can load to set the correct persona and tool-calling rules for customer service scenarios.
 
 ### Decoupled Inspector
 The `mcp-inspector` tool is decoupled. While it defaults to your local server, you can use it to test *any* MCP server:
