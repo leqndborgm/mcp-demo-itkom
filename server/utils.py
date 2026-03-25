@@ -12,29 +12,52 @@ logger = logging.getLogger("mcp-perf")
 
 
 def time_it(func):
-    """Decorator that logs execution time with color-coded output."""
+    """Decorator that logs execution time and response size (if applicable)."""
 
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         start = time.perf_counter()
+        result = None
         try:
-            return await func(*args, **kwargs)
+            result = await func(*args, **kwargs)
+            return result
         finally:
-            _log_duration(func.__name__, start)
+            _log_stats(func.__name__, start, result)
 
     @wraps(func)
     def sync_wrapper(*args, **kwargs):
         start = time.perf_counter()
+        result = None
         try:
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            return result
         finally:
-            _log_duration(func.__name__, start)
+            _log_stats(func.__name__, start, result)
 
     return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
 
 
-def _log_duration(name: str, start: float) -> None:
+def _log_stats(name: str, start: float, result: any = None) -> None:
+    """Logs duration and result size (chars/tokens)."""
     duration = (time.perf_counter() - start) * 1000
     color = "\033[92m" if duration < 100 else "\033[93m" if duration < 500 else "\033[91m"
     reset = "\033[0m"
-    logger.info(f"Tool/Function '{name}' took {color}{duration:.2f}ms{reset}")
+
+    size_info = ""
+    serialized_result = None
+    
+    if isinstance(result, str):
+        serialized_result = result
+    elif isinstance(result, (dict, list)):
+        try:
+            import json
+            serialized_result = json.dumps(result)
+        except Exception:
+            pass
+            
+    if serialized_result is not None:
+        size = len(serialized_result)
+        tokens = size // 4  # Standard estimation for LLMs (chars / 4)
+        size_info = f" | Size: {size:,} chars (~{tokens:,} tokens)"
+
+    logger.info(f"Tool '{name}' took {color}{duration:.2f}ms{reset}{size_info}")
