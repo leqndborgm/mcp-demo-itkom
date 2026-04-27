@@ -2,7 +2,7 @@
   description = "QSC MCP Server - Development Environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/b12141ef619e0a9c1c84dc8c684040326f27cdcc";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -80,7 +80,7 @@
                 pkgs.stdenv.cc.cc.lib
                 pkgs.zlib
               ]
-            }:$LD_LIBRARY_PATH"  
+            }:$LD_LIBRARY_PATH"
 
             # Cleanup port 8001
             echo "Cleaning up port 8001..."
@@ -95,7 +95,7 @@
             # Install mcp-ui-server if not present
             if ! python -c "import mcp_ui_server" 2>/dev/null; then
               echo "Installing mcp-ui-server..."
-              pip install mcp-ui-server
+              python -m pip install mcp-ui-server
             fi
 
             echo ""
