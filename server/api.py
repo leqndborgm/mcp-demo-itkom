@@ -6,7 +6,7 @@ import logging
 
 from cachetools import TTLCache
 
-from server.config import QSC_API_URL, HTTP_TIMEOUT
+from server.config import QSC_API_URL, QSC_RESULT_KEY, HTTP_TIMEOUT
 from server.utils import time_it, logger
 
 # Shared async client with connection pooling and timeout
@@ -18,7 +18,6 @@ _cache = TTLCache(maxsize=512, ttl=300)
 async def qsc_search(body: dict) -> dict:
     """POST search request to QSC Search API.
 
-    See qsc-admin-docs search-api-integration.
     """
     cache_key = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
     if cache_key in _cache:
@@ -34,17 +33,35 @@ async def qsc_search(body: dict) -> dict:
     return result
 
 
-async def smart_search(query: str, rows: int = 1) -> dict:
+def build_search_body(
+    query: str,
+    rows: int = 10,
+) -> dict:
+    """Build a QSC search request body."""
+    return {"q": query, "rows": rows}
+
+
+async def smart_search(
+    query: str,
+    rows: int = 1,
+) -> dict:
     """POST search request with fallback for 0 results.
 
     If the initial query returns no documents and the query has more than
     2 words, it retries with only the first 2 words.
     """
-    result = await qsc_search({"q": query, "rows": rows})
-    docs = result.get("result", {}).get("products", {}).get("documents", [])
+    body = build_search_body(query, rows)
+    result = await qsc_search(body)
+    docs = get_documents(result)
 
     if not docs and len(query.split()) > 2:
         simplified_query = " ".join(query.split()[:2])
-        return await qsc_search({"q": simplified_query, "rows": rows})
+        fallback_body = build_search_body(simplified_query, rows)
+        return await qsc_search(fallback_body)
 
     return result
+
+
+def get_documents(result: dict) -> list:
+    """Extract documents from a QSC search response, regardless of result key."""
+    return result.get("result", {}).get(QSC_RESULT_KEY, {}).get("documents", [])

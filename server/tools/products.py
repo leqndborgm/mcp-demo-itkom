@@ -16,8 +16,6 @@ FETCH_ROWS = 10
 @time_it
 async def find_products(
     keywords: list[str],
-    category: str = None,
-    brand: str = None,
 ) -> str:
     """
     Find products in the BauMax catalog based on a search query.
@@ -28,22 +26,20 @@ async def find_products(
     a direct product search (e.g. "how do I annoy my neighbor" → keywords=["bluetooth speaker", "strobe light"]).
 
     - keywords: list of specific search terms derived from the user's request (required)
-    - category: product category, if clearly implied (e.g. "Bohrmaschinen", "Gartenpumpen")
-    - brand: brand name, if the user specifies one (e.g. "Makita", "Bosch Professional")
 
     The response includes a FURTHER SUGGESTIONS section with additional products.
     Use those suggestions when the user asks for similar products or alternatives —
     do NOT call this tool again for follow-ups.
     """
     query = " ".join(keywords)
-    body = build_search_body(query=query, rows=FETCH_ROWS, category=category, brand=brand)
+    body = build_search_body(query=query, rows=FETCH_ROWS)
     result = await qsc_search(body)
     docs = get_documents(result)
 
     # Fallback: retry with fewer keywords if no results
     if not docs and len(keywords) > 2:
         query = " ".join(keywords[:2])
-        body = build_search_body(query=query, rows=FETCH_ROWS, category=category, brand=brand)
+        body = build_search_body(query=query, rows=FETCH_ROWS)
         result = await qsc_search(body)
         docs = get_documents(result)
 
