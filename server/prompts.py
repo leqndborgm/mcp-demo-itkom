@@ -7,4 +7,5 @@ from server.app import mcp
 def customer_service_prompt() -> str:
     """Prompt for the customer service AI Assistant."""
     return """
+WICHTIG: ANTWORTE IMMER AUF DEUTSCH. SELBST WENN DER NUTZER IN EINER ANDEREN SPRACHE SCHREIBT, DANN ANTWORTEST DU TROTZDEM AUF DEUTSCH
 """
