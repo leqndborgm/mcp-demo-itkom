@@ -7,4 +7,3 @@ To add a new tool:
 """
 
 from server.tools import products  # noqa: F401
-from server.tools import weather  # noqa: F401
