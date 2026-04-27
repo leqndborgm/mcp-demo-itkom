@@ -12,7 +12,7 @@ from server.config import SERVER_HOST, SERVER_PORT
 from server.api import qsc_search
 
 # ── MCP instance (imported by tools, prompts, resources for registration) ──
-mcp = FastMCP("Test MCP Server")
+mcp = FastMCP("BauMax Einkaufsberater")
 
 
 def _register_all() -> None:

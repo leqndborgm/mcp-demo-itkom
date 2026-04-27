@@ -5,8 +5,11 @@ import os
 # QSC Search API
 QSC_API_URL = os.getenv(
     "QSC_API_URL",
-    "https://qsc.quasiris.de/api/v1/search/ab/products",
+    "https://qsc-dev.quasiris.de/api/v1/search/demo/hb-products-ngn-test-formatter",
 )
+
+# The key under result.* that contains the documents — derived from the search name
+QSC_RESULT_KEY = os.getenv("QSC_RESULT_KEY", "hb-products-ngn-test-formatter")
 
 # HTTP server
 SERVER_HOST = os.getenv("MCP_HOST", "0.0.0.0")
