@@ -5,7 +5,8 @@ import sys
 import logging
 
 from fastmcp import FastMCP
-from starlette.responses import FileResponse
+from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 
 from server.config import SERVER_HOST, SERVER_PORT
@@ -51,9 +52,25 @@ def create_http_app():
     async def serve_index(request):
         return FileResponse(os.path.join(os.path.dirname(os.path.dirname(__file__)), "index.html"))
 
+    async def merkzettel_api(request):
+        from server.state import merkzettel_lists
+        active = {name: items for name, items in merkzettel_lists.items() if items}
+        return JSONResponse({
+            "lists": active,
+            "total_items": sum(len(v) for v in active.values()),
+        })
+
     # Prepend custom routes (before MCP's catch-all routes)
     app.routes.insert(0, Route("/", serve_index))
     app.routes.insert(1, Route("/index.html", serve_index))
+    app.routes.insert(2, Route("/api/merkzettel", merkzettel_api))
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
     return app
 
