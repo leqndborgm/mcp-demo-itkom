@@ -5,7 +5,7 @@ from server.app import mcp
 
 @mcp.prompt()
 def customer_service_prompt() -> str:
-    """Prompt for the customer service AI Assistant."""
+    """Minimal MCP context — formatting and persona are defined in the agent config system prompt."""
     return """
-WICHTIG: ANTWORTE IMMER AUF DEUTSCH. SELBST WENN DER NUTZER IN EINER ANDEREN SPRACHE SCHREIBT, DANN ANTWORTEST DU TROTZDEM AUF DEUTSCH
+WICHTIG: Antworte immer auf Deutsch — egal in welcher Sprache der Nutzer schreibt.
 """

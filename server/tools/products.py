@@ -8,8 +8,8 @@ from server.config import QSC_RESULT_KEY
 from server.formatters import format_qsc_results
 from server.utils import time_it
 
-DISPLAY_ROWS = 5
-FETCH_ROWS = 10
+DISPLAY_ROWS = 3
+FETCH_ROWS = 5
 
 
 @mcp.tool()
@@ -65,7 +65,7 @@ async def explain_product(product: str) -> str:
     CRITICAL: Do NOT use this tool to compare or recommend between products — use compare_products instead.
     MANDATORY: Always show the FURTHER SUGGESTIONS section to the user as "Similar products you might also consider".
     """
-    result = await smart_search(product, rows=FETCH_ROWS)
+    result = await smart_search(product, rows=2)
     docs = get_documents(result)
 
     main = format_qsc_results({"result": {QSC_RESULT_KEY: {"documents": docs[:1]}}})
@@ -101,3 +101,5 @@ async def compare_products(product1: str, product2: str) -> str:
     text2 = format_qsc_results(res2)
 
     return f"PRODUCT 1:\n{text1}\n\n---\n\nPRODUCT 2:\n{text2}"
+
+

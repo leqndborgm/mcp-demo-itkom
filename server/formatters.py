@@ -66,30 +66,32 @@ def _format_full(item: dict) -> str:
     brand = p.get("brand", "")
     image = p.get("image", "")
     url = p.get("url", "")
-    desc = (p.get("description") or "")[:400].strip()
+    desc = (p.get("description") or "")[:200].strip()
     cat = _extract_category(p)
     attrs = _extract_attrs(p)
 
     lines = [f"### {title}"]
 
-    meta = [f"Artikel-Nr: {pid}"]
+    if image:
+        lines.append(f"![{title}]({image})")
+
+    meta = [f"**Artikel-Nr:** {pid}"]
     if brand:
-        meta.append(f"Marke: {brand}")
+        meta.append(f"**Marke:** {brand}")
     if cat:
-        meta.append(f"Kategorie: {cat}")
+        meta.append(f"**Kategorie:** {cat}")
     lines.append(" | ".join(meta))
 
     if attrs:
-        lines.append(" | ".join(f"{k}: {v}" for k, v in attrs.items()))
+        attr_parts = [f"**{k}:** {v}" for k, v in attrs.items()]
+        lines.append(" | ".join(attr_parts))
 
     if desc:
         lines.append("")
         lines.append(desc)
 
-    if image:
-        lines.append(f"\nBild: {image}")
     if url:
-        lines.append(f"Link: {url}")
+        lines.append(f"\n[Zum Produkt]({url})")
 
     return "\n".join(lines)
 
